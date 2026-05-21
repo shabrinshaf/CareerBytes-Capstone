@@ -8,6 +8,7 @@ import {
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core';
+import 'dotenv/config';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -26,12 +27,17 @@ export const users = pgTable('users', {
 // ─── Trending Skills ──────────────────────────────────────────────────────────
 
 export const trendingSkills = pgTable('trending_skills', {
-  id: serial('id').primaryKey(),
+  id: serial('id').primaryKey().notNull(),
   skillName: varchar('skill_name', { length: 100 }).notNull(),
   year: integer('year').notNull(),
   popularityScore: integer('popularity_score').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  growth: integer('growth').notNull(), 
+  demand: integer('demand').notNull(), 
+  createdAt: timestamp('created_at', { mode: 'string' }).defaultNow().notNull(),
 });
+
+export type TrendingSkill = typeof trendingSkills.$inferSelect;
+export type NewTrendingSkill = typeof trendingSkills.$inferInsert;
 
 // ─── Roles ────────────────────────────────────────────────────────────────────
 
@@ -49,54 +55,33 @@ export const roles = pgTable('roles', {
 
 export const quizQuestions = pgTable('quiz_questions', {
   id: serial('id').primaryKey(),
-  roleId: integer('role_id')
-    .notNull()
-    .references(() => roles.id),
+  roleId: integer('role_id').notNull().references(() => roles.id),
   question: text('question').notNull(),
+  options: jsonb('options').notNull(),
+  correctAnswer: integer('correct_answer').notNull(),
   skillName: varchar('skill_name', { length: 100 }).notNull(),
   difficulty: varchar('difficulty', { length: 20 }).notNull(),
-  questionType: varchar('question_type', { length: 20 })
-    .notNull()
-    .default('rating'), // 'rating' | 'essay'
-  scenario: text('scenario'),
-  hint: text('hint'),
-  correctAnswer: text('correct_answer'),
   explanation: text('explanation'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// ─── Quiz Results ─────────────────────────────────────────────────────────────
-
 export const quizResults = pgTable('quiz_results', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id')
-    .notNull()
-    .references(() => users.id),
-  roleId: integer('role_id')
-    .notNull()
-    .references(() => roles.id),
-  overallScore: integer('overall_score').notNull(),
-  matchedSkills: jsonb('matched_skills').notNull(),
-  missingSkills: jsonb('missing_skills').notNull(),
-  skillLevels: jsonb('skill_levels').notNull(),
-  skillComparison: jsonb('skill_comparison').notNull(),
+  userId: integer('user_id').notNull().references(() => users.id),
+  roleId: integer('role_id').notNull().references(() => roles.id),
+  overallMatch: integer('overall_match').notNull(),
+  levelBadge: varchar('level_badge', { length: 20 }).notNull(),
+  skillsAnalysis: jsonb('skills_analysis').notNull(),
   totalCorrect: integer('total_correct').default(0),
   totalIncorrect: integer('total_incorrect').default(0),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// ─── Quiz Answers ─────────────────────────────────────────────────────────────
-
 export const quizAnswers = pgTable('quiz_answers', {
   id: serial('id').primaryKey(),
-  resultId: integer('result_id')
-    .notNull()
-    .references(() => quizResults.id),
-  questionId: integer('question_id')
-    .notNull()
-    .references(() => quizQuestions.id),
-  score: integer('score'),
-  essayAnswer: text('essay_answer'),
+  resultId: integer('result_id').notNull().references(() => quizResults.id),
+  questionId: integer('question_id').notNull().references(() => quizQuestions.id),
+  selectedOption: integer('selected_option'),
   isCorrect: integer('is_correct'),
   createdAt: timestamp('created_at').defaultNow(),
 });

@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "seed": "ts-node src/db/seed.ts",
+    "seed:trending-skills": "ts-node src/db/seedTrendingSkills.ts",
     "seed:assessment": "ts-node src/db/seedAssessment.ts",
     "seed:roadmap": "ts-node src/db/seedRoadmap.ts",
     "seed:daily-mission": "ts-node src/db/seedDailyMission.ts"

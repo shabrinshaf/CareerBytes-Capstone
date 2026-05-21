@@ -1,10 +1,5 @@
 import { Router } from 'express';
-
-import {
-  getQuestions,
-  getResult,
-  submitAssessment,
-} from '../controllers/skillAssessmentController';
+import { getQuestions, submitAssessment, getResult } from '../controllers/skillAssessmentController';
 import { protect } from '../middlewares/authMiddleware';
 
 const router = Router();
