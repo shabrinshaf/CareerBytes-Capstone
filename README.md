@@ -1,8 +1,8 @@
 # CareerBytes Backend
 
-Backend API untuk aplikasi CareerBytes — platform yang membantu kamu merencanakan karier di bidang teknologi.
+Backend REST API untuk aplikasi CareerBytes, platform yang membantu user memilih role karier teknologi, melihat skill yang sedang tren, mengerjakan assessment, dan mengikuti daily mission berdasarkan roadmap.
 
-Dibangun dengan **Express.js**, **TypeScript**, **Drizzle ORM**, dan **PostgreSQL**.
+Dibangun dengan Express.js, TypeScript, Drizzle ORM, PostgreSQL, Passport, JWT, Zod, dan Swagger/OpenAPI.
 
 ---
 
@@ -13,234 +13,324 @@ Dibangun dengan **Express.js**, **TypeScript**, **Drizzle ORM**, dan **PostgreSQ
 - [Konfigurasi Environment](#konfigurasi-environment)
 - [Setup Database](#setup-database)
 - [Menjalankan Server](#menjalankan-server)
+- [Dokumentasi API](#dokumentasi-api)
+- [Untuk Tim Frontend](#untuk-tim-frontend)
 - [Struktur Folder](#struktur-folder)
 - [API Endpoints](#api-endpoints)
 - [Cara Test API](#cara-test-api)
 - [Scripts](#scripts)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Prasyarat
 
-Sebelum mulai, pastikan kamu sudah install ini di komputer:
+Pastikan sudah install:
 
-### 1. Node.js
+- Node.js LTS
+- PostgreSQL
+- Git
+- Postman atau REST client lain
 
-- Download di [nodejs.org](https://nodejs.org)
-- Pilih versi **LTS** (yang paling stabil)
-- Cek apakah sudah terinstall:
-  ```bash
-  node -v
-  # Harusnya muncul v18.x.x atau lebih baru
-  ```
+Cek versi:
 
-### 2. PostgreSQL
-
-- Download di [postgresql.org/download](https://www.postgresql.org/download/)
-- Saat instalasi, kamu akan diminta buat **password untuk user postgres** — catat passwordnya!
-- Cek apakah sudah terinstall:
-  ```bash
-  psql --version
-  # Harusnya muncul psql (PostgreSQL) 15.x atau lebih baru
-  ```
-
-### 3. Git
-
-- Download di [git-scm.com](https://git-scm.com)
-- Cek apakah sudah terinstall:
-  ```bash
-  git --version
-  ```
-
-### 4. Postman (untuk test API)
-
-- Download di [postman.com/downloads](https://www.postman.com/downloads/)
+```bash
+node -v
+psql --version
+git --version
+```
 
 ---
 
 ## Instalasi
 
-### 1. Clone repository
+Clone repository:
 
 ```bash
 git clone https://github.com/Rafi-agastya/careerBytes.git
 cd careerBytes
 ```
 
-### 2. Install dependencies
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-> Perintah ini akan mengunduh semua package yang dibutuhkan. Tunggu sampai selesai.
-
 ---
 
 ## Konfigurasi Environment
 
-File `.env` berisi konfigurasi rahasia seperti password database. File ini **tidak boleh** di-upload ke GitHub.
-
-### 1. Buat file `.env`
+Buat file `.env` dari contoh:
 
 ```bash
-# Di terminal, jalankan:
 cp .env.example .env
 ```
 
-> Perintah ini membuat salinan file `.env.example` menjadi `.env`
-
-### 2. Buka file `.env` dan isi nilainya
+Isi `.env`:
 
 ```env
-# URL koneksi ke database PostgreSQL
-# Format: postgresql://username:password@host:port/nama_database
 DATABASE_URL=postgresql://postgres:password_kamu@localhost:5432/careerbytes
 
-# Google OAuth (opsional, untuk fitur login dengan Google)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 
-# GitHub OAuth (opsional, untuk fitur login dengan GitHub)
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
 
-# Secret key untuk JWT — isi dengan string random yang panjang
-# Contoh: careerbytes_secret_key_2024_abcdefghijk
 JWT_SECRET=isi_dengan_string_random_yang_panjang
 
-# URL frontend
 CLIENT_URL=http://localhost:5173
-
-# Port server (default 3000)
 PORT=3000
 ```
 
-> **Catatan:** Ganti `password_kamu` di `DATABASE_URL` dengan password PostgreSQL yang kamu buat saat instalasi.
+Catatan:
 
-### 3. Buat database di PostgreSQL
+- Ganti `password_kamu` sesuai password PostgreSQL lokal.
+- `JWT_SECRET` wajib diisi.
+- `CLIENT_URL` adalah alamat frontend. Default Vite biasanya `http://localhost:5173`.
+- Google/GitHub OAuth boleh dikosongkan kalau fitur OAuth belum dipakai.
 
-Buka terminal baru dan jalankan:
+---
+
+## Setup Database
+
+Buat database PostgreSQL:
 
 ```bash
 psql -U postgres
 ```
-
-Masukkan password PostgreSQL kamu, lalu buat database baru:
 
 ```sql
 CREATE DATABASE careerbytes;
 \q
 ```
 
----
-
-## Setup Database
-
-### 1. Push schema ke database
+Push schema Drizzle:
 
 ```bash
-npx drizzle-kit push
+npm run db:push
 ```
 
-> Perintah ini akan membuat semua tabel di database secara otomatis berdasarkan `src/db/schema.ts`. Jalankan setiap kali ada perubahan schema.
-
-Kalau berhasil, kamu akan melihat output seperti:
-
-```
-[✓] Changes applied
-```
-
-### 2. Isi data awal (seed)
-
-Jalankan seed secara berurutan:
+Seed data awal:
 
 ```bash
-# Isi data trending skills (JavaScript, Python, dll per tahun)
-npm run seed
-
-# Isi data roles & soal quiz assessment
+npm run seed:trending-skills
 npm run seed:assessment
-
-# Isi data career roadmap (roles + level Beginner/Intermediate/Advanced)
 npm run seed:roadmap
+npm run seed:daily-mission
 ```
 
-> **Penting:** Jalankan ketiga perintah di atas secara berurutan. Jangan dilewati.
+Catatan:
+
+- `npm run seed` juga tersedia dan mengarah ke `src/db/seed.ts`.
+- Untuk setup lengkap fitur terbaru, jalankan seed trending skills, assessment, roadmap, lalu daily mission.
 
 ---
 
 ## Menjalankan Server
 
+Mode development:
+
 ```bash
 npm run dev
 ```
 
-Kalau berhasil, kamu akan melihat:
+Kalau berhasil:
 
-```
+```text
 [nodemon] starting `ts-node src/app.ts`
 Server running on PORT 3000
 Database Connected (Drizzle Ready)
 ```
 
-Server sekarang berjalan di `http://localhost:3000` 🎉
+Server berjalan di:
 
-> **Catatan:** Nodemon akan otomatis restart server setiap kali kamu menyimpan perubahan file.
+```text
+http://localhost:3000
+```
+
+Catatan penting:
+
+- Project ini adalah backend API, bukan frontend.
+- Root URL `/` tidak punya halaman khusus.
+- Buka dokumentasi API di `/api/docs/`.
+
+Build dan run production lokal:
+
+```bash
+npm run build
+npm start
+```
+
+---
+
+## Dokumentasi API
+
+Dokumentasi interaktif menggunakan Swagger UI.
+
+```text
+http://localhost:3000/api/docs/
+```
+
+Swagger dibuat dari:
+
+- `src/config/swagger.ts`
+- komentar OpenAPI di `src/routes/*.ts`
+- mount route di `src/app.ts`
+
+Kalau membuka `/api/docs/` muncul `Cannot GET`, biasanya server yang sedang berjalan bukan server dari code terbaru, atau port `3000` sedang dipakai proses Node lama.
+
+---
+
+## Untuk Tim Frontend
+
+Frontend perlu backend yang sedang berjalan supaya bisa memanggil API dan membuka Swagger.
+
+Kalau frontend dan backend jalan di laptop yang sama, jalankan dua terminal:
+
+```bash
+# Terminal backend
+npm run dev
+```
+
+```bash
+# Terminal frontend, dari folder frontend
+npm run dev
+```
+
+Alamat lokal:
+
+```text
+Backend API : http://localhost:3000
+Frontend    : http://localhost:5173
+Swagger Docs: http://localhost:3000/api/docs/
+```
+
+Environment frontend:
+
+```env
+VITE_API_URL=http://localhost:3000
+```
+
+Contoh fetch:
+
+```ts
+const API_URL = import.meta.env.VITE_API_URL;
+
+const response = await fetch(`${API_URL}/api/trending-skills`);
+const data = await response.json();
+```
+
+Untuk endpoint yang butuh login:
+
+```ts
+const response = await fetch(`${API_URL}/api/auth/me`, {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+Kalau frontend jalan di laptop berbeda, `localhost` menunjuk ke laptop masing-masing. Jadi frontend tidak bisa akses `http://localhost:3000` di laptop backend kecuali backend-nya dibuat bisa diakses publik atau frontend menjalankan backend sendiri.
+
+Pilihan untuk beda laptop:
+
+1. Frontend clone repo backend ini dan jalankan backend lokal sendiri.
+2. Backend di-deploy ke server publik, lalu frontend memakai URL deploy.
+3. Untuk demo sementara, expose backend lokal dengan tunnel seperti ngrok atau Cloudflare Tunnel.
+
+Kalau sudah deploy:
+
+```env
+VITE_API_URL=https://url-backend-kamu
+```
+
+Swagger deploy:
+
+```text
+https://url-backend-kamu/api/docs/
+```
 
 ---
 
 ## Struktur Folder
 
-```
+```text
 src/
-├── app.ts                          # Entry point — tempat server dimulai
+├── app.ts                          # Entry point Express
 ├── config/
-│   ├── db.ts                       # Koneksi ke database
-│   └── passport.ts                 # Konfigurasi login OAuth (Google & GitHub)
-├── controllers/                    # Logic utama tiap fitur
-│   ├── authController.ts           # Register, login, get profile
-│   ├── trendingSkillsController.ts # Data skill yang lagi trending
-│   ├── skillAssessmentController.ts# Quiz assessment skill
-│   └── careerRoadmapController.ts  # Career roadmap & pencarian role
+│   ├── db.ts                       # Koneksi Drizzle/PostgreSQL
+│   ├── passport.ts                 # OAuth Google/GitHub
+│   └── swagger.ts                  # Konfigurasi OpenAPI
+├── controllers/
+│   ├── authController.ts
+│   ├── careerRoadmapController.ts
+│   ├── dailyMissionController.ts
+│   ├── skillAssessmentController.ts
+│   └── trendingSkillsController.ts
 ├── db/
-│   ├── schema.ts                   # Definisi tabel database
-│   ├── seed.ts                     # Data awal trending skills
-│   ├── seedAssessment.ts           # Data awal soal quiz
-│   └── seedRoadmap.ts              # Data awal career roadmap
+│   ├── schema.ts                   # Schema database Drizzle
+│   ├── fixRolesTable.ts            # Script utilitas roles
+│   ├── seed.ts
+│   ├── seedTrendingSkills.ts
+│   ├── seedAssessment.ts
+│   ├── seedRoadmap.ts
+│   ├── seedDailyMission.ts
+│   └── trendingSkillsSeedData.ts
 ├── middlewares/
-│   ├── authMiddleware.ts           # Cek apakah user sudah login (JWT)
-│   └── validationMiddleware.ts     # Validasi input request
-├── routes/                         # Definisi URL endpoint
+│   ├── authMiddleware.ts           # JWT protect middleware
+│   └── validationMiddleware.ts     # Validasi Zod
+├── routes/
 │   ├── authRoutes.ts               # /api/auth/*
-│   ├── trendingSkillsRoutes.ts     # /api/trending-skills/*
-│   ├── skillAssessmentRoutes.ts    # /api/skill-assessment/*
 │   ├── careerRoadmapRoutes.ts      # /api/career-roadmap/*
-│   └── rolesRoutes.ts              # /api/roles/*
-└── validators/                     # Schema validasi input (Zod)
+│   ├── dailyMissionRoutes.ts       # /api/daily-mission/*
+│   ├── rolesRoutes.ts              # /api/roles/*
+│   ├── skillAssessmentRoutes.ts    # /api/skill-assessment/*
+│   └── trendingSkillsRoutes.ts     # /api/trending-skills/*
+└── validators/
     ├── authSchema.ts
-    ├── trendingSkills.ts
+    ├── careerRoadmap.ts
+    ├── dailyMission.ts
     ├── skillAssessment.ts
-    └── careerRoadmap.ts
+    └── trendingSkills.ts
 ```
 
 ---
 
 ## API Endpoints
 
-> Semua endpoint kecuali Register dan Login membutuhkan **Bearer Token** di header Authorization.
+Header untuk endpoint yang butuh login:
 
-### 🔐 Authentication
-
-#### Register
-
-```
-POST /api/auth/register
+```http
+Authorization: Bearer <token>
 ```
 
-Body:
+Endpoint publik:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/google`
+- `GET /api/auth/github`
+- `GET /api/trending-skills`
+- `GET /api/trending-skills/jobs`
+
+### Authentication
+
+| Method | Endpoint | Auth | Keterangan |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/register` | Tidak | Register user baru |
+| `POST` | `/api/auth/login` | Tidak | Login dan mendapatkan JWT token |
+| `GET` | `/api/auth/me` | Ya | Ambil profil user login |
+| `PATCH` | `/api/auth/me/role` | Ya | Pilih role karier user |
+| `GET` | `/api/auth/google` | Tidak | Redirect ke login Google |
+| `GET` | `/api/auth/google/callback` | Tidak | Callback OAuth Google |
+| `GET` | `/api/auth/github` | Tidak | Redirect ke login GitHub |
+| `GET` | `/api/auth/github/callback` | Tidak | Callback OAuth GitHub |
+
+Body register:
 
 ```json
 {
@@ -250,24 +340,7 @@ Body:
 }
 ```
 
-Response sukses (`201`):
-
-```json
-{
-  "message": "Registrasi berhasil!",
-  "user": { "id": 1, "name": "John Doe", "email": "john@gmail.com" }
-}
-```
-
----
-
-#### Login
-
-```
-POST /api/auth/login
-```
-
-Body:
+Body login:
 
 ```json
 {
@@ -276,47 +349,195 @@ Body:
 }
 ```
 
-Response sukses (`200`):
+Body pilih role:
 
 ```json
 {
-  "message": "Login berhasil!",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "roleId": 1
 }
 ```
 
-> **Simpan token ini!** Token dibutuhkan untuk semua endpoint lainnya.
+### Trending Skills
 
----
+| Method | Endpoint | Auth | Keterangan |
+| --- | --- | --- | --- |
+| `GET` | `/api/trending-skills` | Tidak | Ambil semua trending skills |
+| `GET` | `/api/trending-skills?year=2025` | Tidak | Filter trending skills berdasarkan tahun |
+| `GET` | `/api/trending-skills/jobs` | Tidak | Ambil daftar nama skill unik |
+| `GET` | `/api/trending-skills/periods` | Ya | Ambil daftar tahun yang tersedia |
 
-#### Get Profile
+### Roles
 
-```
-GET /api/auth/me
-Authorization: Bearer <token>
-```
+| Method | Endpoint | Auth | Keterangan |
+| --- | --- | --- | --- |
+| `GET` | `/api/roles?query=frontend` | Ya | Cari role berdasarkan keyword |
+| `GET` | `/api/roles/popular` | Ya | Ambil daftar role populer |
 
-Response sukses (`200`):
+### Skill Assessment
+
+| Method | Endpoint | Auth | Keterangan |
+| --- | --- | --- | --- |
+| `GET` | `/api/skill-assessment/questions?role=Frontend Developer` | Ya | Ambil soal quiz berdasarkan nama role |
+| `POST` | `/api/skill-assessment/submit` | Ya | Submit jawaban quiz |
+| `GET` | `/api/skill-assessment/result` | Ya | Ambil hasil assessment terakhir |
+
+Body submit assessment:
 
 ```json
 {
-  "user": {
-    "id": 1,
-    "name": "John Doe",
-    "email": "john@gmail.com",
-    "avatar": null,
-    "createdAt": "2024-01-01T00:00:00.000Z"
-  }
+  "roleId": 2,
+  "answers": [
+    { "questionId": 1, "selectedOption": 0 },
+    { "questionId": 2, "selectedOption": 3 }
+  ]
 }
 ```
 
+### Career Roadmap
+
+| Method | Endpoint | Auth | Keterangan |
+| --- | --- | --- | --- |
+| `GET` | `/api/career-roadmap?role=UI/UX Designer` | Ya | Ambil roadmap berdasarkan nama role |
+| `GET` | `/api/career-roadmap/default` | Ya | Ambil roadmap berdasarkan role yang dipilih user |
+
+`/api/career-roadmap/default` return `404` kalau user belum memilih role lewat `PATCH /api/auth/me/role`.
+
+### Daily Mission
+
+Semua endpoint daily mission membutuhkan JWT token.
+
+| Method | Endpoint | Auth | Keterangan |
+| --- | --- | --- | --- |
+| `GET` | `/api/daily-mission/roadmap/:roleId` | Ya | Ambil level roadmap, progress user, dan status lock/unlock |
+| `GET` | `/api/daily-mission/tasks/:roadmapLevelId` | Ya | Ambil task untuk satu level roadmap |
+| `GET` | `/api/daily-mission/task/:taskId` | Ya | Ambil detail task, instruksi, requirements, dan pertanyaan |
+| `POST` | `/api/daily-mission/task/:taskId/submit` | Ya | Submit final task dan update progress |
+| `POST` | `/api/daily-mission/task/:taskId/draft` | Ya | Simpan draft task tanpa menaikkan progress |
+
+Body submit task:
+
+```json
+{
+  "figmaLink": "https://figma.com/file/example",
+  "fileUrl": null,
+  "answer1": "Jawaban refleksi pertama",
+  "answer2": "Jawaban refleksi kedua",
+  "answer3": "Jawaban refleksi ketiga"
+}
+```
+
+Submit final wajib menyertakan minimal `figmaLink` atau `fileUrl`, dan semua `answer1`, `answer2`, `answer3` harus terisi.
+
 ---
 
-#### Pilih Role Karier
+## Cara Test API
 
+Urutan test pertama kali:
+
+```text
+1. POST   /api/auth/register
+2. POST   /api/auth/login
+3. GET    /api/auth/me
+4. GET    /api/roles/popular
+5. PATCH  /api/auth/me/role
+6. GET    /api/career-roadmap/default
+7. GET    /api/trending-skills?year=2025
+8. GET    /api/skill-assessment/questions?role=Frontend Developer
+9. POST   /api/skill-assessment/submit
+10. GET   /api/skill-assessment/result
+11. GET   /api/daily-mission/roadmap/:roleId
+12. GET   /api/daily-mission/tasks/:roadmapLevelId
+13. GET   /api/daily-mission/task/:taskId
+14. POST  /api/daily-mission/task/:taskId/draft
+15. POST  /api/daily-mission/task/:taskId/submit
 ```
+
+Cara pakai token di Postman:
+
+1. Login atau register dulu.
+2. Copy `token` dari response.
+3. Buka tab Authorization.
+4. Pilih type `Bearer Token`.
+5. Paste token.
+6. Send request ke endpoint yang butuh auth.
+
+---
+
+## Scripts
+
+| Command | Keterangan |
+| --- | --- |
+| `npm run dev` | Jalankan server development dengan nodemon |
+| `npm run build` | Compile TypeScript ke `dist/` |
+| `npm start` | Jalankan hasil build dari `dist/app.js` |
+| `npm run lint` | Cek kode dengan ESLint |
+| `npm run format` | Format kode dengan Prettier |
+| `npm run db:push` | Push schema Drizzle ke database |
+| `npm run db:studio` | Buka Drizzle Studio |
+| `npm run seed` | Jalankan `src/db/seed.ts` |
+| `npm run seed:trending-skills` | Isi data trending skills |
+| `npm run seed:assessment` | Isi data roles dan quiz assessment |
+| `npm run seed:roadmap` | Isi data career roadmap |
+| `npm run seed:daily-mission` | Isi data daily mission |
+
+---
+
+## Troubleshooting
+
+### `Cannot connect to database`
+
+- Pastikan PostgreSQL berjalan.
+- Cek `DATABASE_URL` di `.env`.
+- Pastikan database sudah dibuat.
+- Jalankan `npm run db:push`.
+
+### `secretOrPrivateKey must have a value`
+
+`JWT_SECRET` belum diisi di `.env`.
+
+### `Cannot find module`
+
+Jalankan:
+
+```bash
+npm install
+```
+
+Pastikan terminal berada di folder yang memiliki `package.json`.
+
+### `relation does not exist`
+
+Tabel belum dibuat. Jalankan:
+
+```bash
+npm run db:push
+```
+
+### `Cannot GET /`
+
+Normal. Backend ini tidak menyediakan halaman root. Buka:
+
+```text
+http://localhost:3000/api/docs/
+```
+
+### `Cannot GET /api/docs/`
+
+Kemungkinan server yang berjalan bukan code terbaru, atau port `3000` dipakai proses lama.
+
+Solusi Windows:
+
+```powershell
+taskkill /F /IM node.exe
+npm run dev
+```
+
+### `404 Kamu belum memilih role karier`
+
+User belum memilih role. Jalankan:
+
+```http
 PATCH /api/auth/me/role
-Authorization: Bearer <token>
 ```
 
 Body:
@@ -326,365 +547,3 @@ Body:
   "roleId": 1
 }
 ```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Role berhasil dipilih: UI/UX Designer",
-  "data": { "roleId": 1, "roleName": "UI/UX Designer" }
-}
-```
-
----
-
-#### Login dengan Google
-
-```
-GET /api/auth/google
-```
-
-> Buka URL ini di browser. Kamu akan diarahkan ke halaman login Google.
-
----
-
-#### Login dengan GitHub
-
-```
-GET /api/auth/github
-```
-
-> Buka URL ini di browser. Kamu akan diarahkan ke halaman login GitHub.
-
----
-
-### 📈 Trending Skills
-
-#### Ambil Semua Periode (Tahun)
-
-```
-GET /api/trending-skills/periods
-Authorization: Bearer <token>
-```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Success",
-  "data": [2025, 2024, 2023]
-}
-```
-
----
-
-#### Ambil Skills Berdasarkan Tahun
-
-```
-GET /api/trending-skills?year=2025
-Authorization: Bearer <token>
-```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Success",
-  "year": 2025,
-  "data": [
-    { "id": 1, "skillName": "AI/ML", "year": 2025, "popularityScore": 99 },
-    { "id": 2, "skillName": "Python", "year": 2025, "popularityScore": 96 }
-  ]
-}
-```
-
----
-
-### 📝 Skill Assessment
-
-#### Ambil Soal Quiz Berdasarkan Role
-
-```
-GET /api/skill-assessment/questions?role=Frontend Developer
-Authorization: Bearer <token>
-```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Success",
-  "role": "Frontend Developer",
-  "total": 10,
-  "data": [
-    {
-      "id": 1,
-      "question": "How familiar are you with HTML and CSS?",
-      "skillName": "HTML/CSS",
-      "difficulty": "basic",
-      "questionType": "rating",
-      "hint": "Think about semantic HTML..."
-    }
-  ]
-}
-```
-
----
-
-#### Submit Jawaban Assessment
-
-```
-POST /api/skill-assessment/submit
-Authorization: Bearer <token>
-```
-
-Body contoh (rating question):
-
-```json
-{
-  "roleId": 2,
-  "answers": [
-    { "questionId": 1, "score": 4 },
-    { "questionId": 2, "score": 3 },
-    {
-      "questionId": 3,
-      "essayAnswer": "I would use React.memo to prevent unnecessary re-renders and useMemo to memoize expensive calculations..."
-    }
-  ]
-}
-```
-
-> Untuk `questionType: "rating"` isi `score` (1-5). Untuk `questionType: "essay"` isi `essayAnswer` (minimal 100 karakter).
-
-Response sukses (`201`):
-
-```json
-{
-  "message": "Assessment Complete!",
-  "data": {
-    "overallScore": 80,
-    "matchedSkills": ["HTML/CSS", "React"],
-    "missingSkills": ["TypeScript"],
-    "skillLevels": { "HTML/CSS": "advanced", "React": "intermediate" },
-    "skillComparison": {
-      "HTML/CSS": { "yourScore": 80, "targetScore": 40, "status": "match" }
-    }
-  }
-}
-```
-
----
-
-#### Lihat Hasil Assessment Terakhir
-
-```
-GET /api/skill-assessment/result
-Authorization: Bearer <token>
-```
-
----
-
-### 🗺️ Career Roadmap
-
-#### Cari Roadmap Berdasarkan Role
-
-```
-GET /api/career-roadmap?role=UI/UX Designer
-Authorization: Bearer <token>
-```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Success",
-  "data": {
-    "id": 1,
-    "name": "UI/UX Designer",
-    "description": "Design intuitive and engaging digital experiences...",
-    "careerLevel": "Mid Career",
-    "estimateYears": "3-4 Years",
-    "levels": [
-      {
-        "level": "beginner",
-        "levelLabel": "Beginner Level",
-        "description": "Building the foundation of visual communication...",
-        "skills": ["User Research", "Wireframing", "Typography"],
-        "tools": ["Figma", "Notion"],
-        "order": 1
-      },
-      {
-        "level": "intermediate",
-        "levelLabel": "Intermediate Level",
-        "description": "Mastering interaction patterns...",
-        "skills": ["Auto Layout", "Prototyping", "Design System"],
-        "tools": ["Figma", "Adobe XD"],
-        "order": 2
-      },
-      {
-        "level": "advanced",
-        "levelLabel": "Advanced Level",
-        "description": "Leading design vision...",
-        "skills": ["Leadership", "UX Strategy"],
-        "tools": ["Notion"],
-        "order": 3
-      }
-    ]
-  }
-}
-```
-
-Response tidak ditemukan (`404`):
-
-```json
-{
-  "message": "Career roadmap untuk \"Blockchain Developer\" tidak ditemukan",
-  "suggestions": [
-    "UI/UX Designer",
-    "Data Analyst",
-    "Frontend Developer",
-    "Product Manager"
-  ]
-}
-```
-
----
-
-#### Ambil Roadmap Role User yang Login
-
-```
-GET /api/career-roadmap/default
-Authorization: Bearer <token>
-```
-
-> Endpoint ini akan return roadmap berdasarkan role yang sudah dipilih user lewat `PATCH /api/auth/me/role`. Kalau belum pilih role, akan return `404`.
-
----
-
-### 🎯 Roles
-
-#### Cari Role
-
-```
-GET /api/roles?query=frontend
-Authorization: Bearer <token>
-```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Success",
-  "total": 2,
-  "data": [
-    {
-      "id": 2,
-      "name": "Frontend Developer",
-      "careerLevel": "Mid Career",
-      "estimateYears": "2-3 Years"
-    },
-    {
-      "id": 4,
-      "name": "Full Stack Developer",
-      "careerLevel": "Senior",
-      "estimateYears": "4-5 Years"
-    }
-  ]
-}
-```
-
----
-
-#### Ambil Role Populer
-
-```
-GET /api/roles/popular
-Authorization: Bearer <token>
-```
-
-Response sukses (`200`):
-
-```json
-{
-  "message": "Success",
-  "total": 4,
-  "data": [
-    { "id": 1, "name": "UI/UX Designer", "careerLevel": "Mid Career" },
-    { "id": 2, "name": "Frontend Developer", "careerLevel": "Mid Career" },
-    { "id": 5, "name": "Data Analyst", "careerLevel": "Entry Level" },
-    { "id": 7, "name": "Product Manager", "careerLevel": "Mid Career" }
-  ]
-}
-```
-
----
-
-## Cara Test API
-
-### Urutan yang benar untuk test pertama kali:
-
-```
-1. POST   /api/auth/register          → daftar akun
-2. POST   /api/auth/login             → login, simpan token
-3. GET    /api/auth/me                → cek profile (pakai token)
-4. GET    /api/roles/popular          → lihat role populer
-5. PATCH  /api/auth/me/role           → pilih role (body: {"roleId": 1})
-6. GET    /api/career-roadmap/default → lihat roadmap role kamu
-7. GET    /api/trending-skills?year=2025           → lihat trending skills
-8. GET    /api/skill-assessment/questions?role=... → ambil soal quiz
-9. POST   /api/skill-assessment/submit             → submit jawaban
-10. GET   /api/skill-assessment/result             → lihat hasil
-```
-
-### Cara pakai token di Postman:
-
-1. Login dulu, copy token dari response
-2. Di request berikutnya, klik tab **Authorization**
-3. Pilih type **Bearer Token**
-4. Paste token di kolom **Token**
-5. Klik **Send**
-
----
-
-## Scripts
-
-| Command                   | Keterangan                                 |
-| ------------------------- | ------------------------------------------ |
-| `npm run dev`             | Jalankan server development (auto-restart) |
-| `npm run build`           | Compile TypeScript ke JavaScript           |
-| `npm start`               | Jalankan hasil build (production)          |
-| `npm run lint`            | Cek kode dengan ESLint                     |
-| `npm run format`          | Format kode dengan Prettier                |
-| `npx drizzle-kit push`    | Push perubahan schema ke database          |
-| `npx drizzle-kit studio`  | Buka Drizzle Studio (GUI database)         |
-| `npm run seed`            | Isi data trending skills                   |
-| `npm run seed:assessment` | Isi data soal quiz assessment              |
-| `npm run seed:roadmap`    | Isi data career roadmap                    |
-
----
-
-## Troubleshooting
-
-### ❌ `Cannot connect to database`
-
-- Pastikan PostgreSQL sudah berjalan
-- Cek `DATABASE_URL` di `.env` — password dan nama database harus benar
-- Coba buka pgAdmin atau jalankan `psql -U postgres` untuk cek koneksi
-
-### ❌ `secretOrPrivateKey must have a value`
-
-- `JWT_SECRET` di `.env` kosong — isi dengan string random apapun
-
-### ❌ `Cannot find module`
-
-- Jalankan `npm install` lagi
-- Pastikan kamu ada di folder yang benar (folder yang ada `package.json`-nya)
-
-### ❌ `relation does not exist`
-
-- Tabel belum dibuat — jalankan `npx drizzle-kit push`
-
-### ❌ `404 Kamu belum memilih role karier`
-
-- Normal! Artinya user belum pilih role
-- Jalankan `PATCH /api/auth/me/role` dulu dengan `{"roleId": 1}`
