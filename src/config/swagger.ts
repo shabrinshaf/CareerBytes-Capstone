@@ -8,7 +8,16 @@ const options: swaggerJsdoc.Options = {
       version: '1.0.0',
       description: 'Dokumentasi REST API untuk platform CareerBytes',
     },
-    servers: [{ url: 'http://localhost:3000' }],
+    servers: [
+      { 
+        url: 'https://careerbytes-capstone-production-d45d.up.railway.app',
+        description: 'Production Server (Railway)' 
+      },
+      { 
+        url: 'http://localhost:3000',
+        description: 'Local Server' 
+      }
+    ],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -20,9 +29,8 @@ const options: swaggerJsdoc.Options = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ['./src/routes/*.ts'],
+  apis: ['./src/routes/*.ts', './dist/routes/*.js'], // Ditambah versi .js buat amannya production
 };
 
-const swaggerSpec = swaggerJsdoc(options);
-
-export default swaggerSpec;
+// Menggunakan Named Export agar ramah TypeScript compiler
+export const swaggerSpec = swaggerJsdoc(options);

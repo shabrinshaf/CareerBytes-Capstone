@@ -1,3 +1,4 @@
+import { swaggerSpec } from './config/swagger';
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
@@ -11,7 +12,6 @@ import rolesRoutes from './routes/rolesRoutes';
 import dailyMissionRoutes from './routes/dailyMissionRoutes';
 
 import swaggerUi from 'swagger-ui-express';
-import swaggerSpec from './config/swagger';
 
 const app = express();
 
