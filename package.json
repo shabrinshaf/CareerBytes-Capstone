@@ -12,6 +12,7 @@
     "start": "node dist/app.js",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:migrate": "drizzle-kit migrate",
     "seed": "ts-node src/db/seed.ts",
     "seed:trending-skills": "ts-node src/db/seedTrendingSkills.ts",
     "seed:assessment": "ts-node src/db/seedAssessment.ts",
