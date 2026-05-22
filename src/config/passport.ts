@@ -1,10 +1,12 @@
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
+dotenv.config(); // Dipanggil paling pertama sebelum modul lain
+
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import bcrypt from 'bcryptjs';
-import db from './db'; // Import default (tanpa kurung kurawal)
+import db from './db';
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
