@@ -1,15 +1,13 @@
-import { desc, eq } from 'drizzle-orm';
 import { Request, Response } from 'express';
-
-import db from '../config/db';
+import { db } from '../config/db';
 import { trendingSkills } from '../db/schema';
-import { yearQuerySchema } from '../validators/trendingSkills';
+import { desc, eq } from 'drizzle-orm'; // Tambahkan 'eq' di sini untuk perbandingan data
 
-// GET /api/trending-skills/periods
-export const getPeriods = async (
-  _req: Request,
-  res: Response,
-): Promise<void> => {
+const logControllerError = (context: string, error: unknown): void => {
+  console.error(`[TrendingSkills] ${context}:`, error);
+};
+
+export const getPeriods = async (_req: Request, res: Response): Promise<void> => {
   try {
     const periods = await db
       .selectDistinct({ year: trendingSkills.year })
@@ -20,41 +18,59 @@ export const getPeriods = async (
       message: 'Success',
       data: periods.map((p) => p.year),
     });
-  } catch {
+  } catch (error: unknown) {
+    logControllerError('Gagal mengambil daftar periode', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// GET /api/trending-skills?year=2025
-export const getSkillsByYear = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getTrendingSkills = async (req: Request, res: Response): Promise<void> => {
   try {
-    const parsed = yearQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      const errorMessage = parsed.error.issues[0]?.message ?? 'Invalid query';
-      res.status(400).json({ message: errorMessage });
-      return;
-    }
+    // 1. Ambil query parameter 'year' dari request URL
+    const { year } = req.query;
 
-    const { year } = parsed.data;
-
-    const skills = await db
+    // 2. Buat instance query dasar Drizzle
+    let query = db
       .select()
-      .from(trendingSkills)
-      .where(eq(trendingSkills.year, year))
-      .orderBy(desc(trendingSkills.popularityScore));
+      .from(trendingSkills);
 
-    if (skills.length === 0) {
-      res
-        .status(404)
-        .json({ message: `Data untuk tahun ${year} tidak ditemukan` });
-      return;
+    // 3. Jika user mengirimkan query parameter ?year=..., lakukan filter secara dinamis
+    if (year) {
+      const targetYear = Number(year);
+      
+      // Validasi tipis agar aman dari input aneh yang bukan angka
+      if (!isNaN(targetYear)) {
+        // Drizzle menggunakan sintaks .where(eq(kolom, nilai))
+        query = query.where(eq(trendingSkills.year, targetYear)) as any;
+      }
     }
 
-    res.json({ message: 'Success', year, data: skills });
-  } catch {
-    res.status(500).json({ message: 'Server Error' });
+    // 4. Jalankan query dengan sorting default (Skor popularitas tertinggi di atas)
+    const data = await query.orderBy(desc(trendingSkills.year), desc(trendingSkills.popularityScore));
+
+    res.status(200).json({
+      status: 'success',
+      data,
+    });
+  } catch (error: unknown) {
+    logControllerError('Gagal mengambil data trending skills', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
+export const getUniqueJobs = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    // Mengambil nama pekerjaan yang unik saja dari database menggunakan Drizzle selectDistinct
+    const jobs = await db
+      .selectDistinct({ skillName: trendingSkills.skillName })
+      .from(trendingSkills);
+
+    res.status(200).json({
+      status: 'success',
+      data: jobs.map((j) => j.skillName), // Mengembalikan array berisi 10 nama string bersih
+    });
+  } catch (error: unknown) {
+    logControllerError('Gagal mengambil daftar pekerjaan unik', error);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 };

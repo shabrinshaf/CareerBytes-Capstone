@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
@@ -6,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import db from './db'; // Import default (tanpa kurung kurawal)
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
+
 
 // 1. Auth Biasa (Local)
 passport.use(
@@ -75,8 +77,9 @@ passport.use(
 passport.use(
   new GitHubStrategy(
     {
-      clientID: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      // Menggunakan fallback string jika environment variable belum termuat di runtime
+      clientID: process.env.GITHUB_CLIENT_ID || 'mock_github_client_id_careerbytes',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || 'mock_github_client_secret_careerbytes',
       callbackURL: 'http://localhost:3000/api/auth/github/callback',
       scope: ['user:email'], // Agar kita dapat email user
     },

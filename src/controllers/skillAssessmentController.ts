@@ -1,110 +1,48 @@
-import { desc, eq } from 'drizzle-orm';
 import { Request, Response } from 'express';
+import { db } from '../config/db';
+import { quizQuestions, quizResults, quizAnswers, roles } from '../db/schema';
+import { eq, desc } from 'drizzle-orm';
+import { submitAnswerSchema, roleQuerySchema } from '../validators/skillAssessment';
 
-import db from '../config/db';
-import { quizAnswers, quizQuestions, quizResults, roles } from '../db/schema';
-import {
-  roleQuerySchema,
-  submitAnswerSchema,
-} from '../validators/skillAssessment';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-type AnswerMeta = {
-  score?: number | null;
-  isCorrect?: number | null;
-  skillName: string;
-  difficulty: string;
-  questionType: string;
+const getLevelBadge = (overallMatch: number): string => {
+  if (overallMatch >= 80) return 'ADVANCED';
+  if (overallMatch >= 50) return 'INTERMEDIATE';
+  return 'BEGINNER';
 };
 
-const calculateSkillGap = (answers: AnswerMeta[]) => {
-  const thresholds: Record<string, number> = {
-    basic: 2,
-    intermediate: 3,
-    advanced: 4,
-  };
+const calculateSkillAnalysis = (
+  answers: { skillName: string; isCorrect: number }[]
+) => {
+  const groups: Record<string, { correct: number; total: number }> = {};
+  answers.forEach((a) => {
+    if (!groups[a.skillName]) groups[a.skillName] = { correct: 0, total: 0 };
+    groups[a.skillName].total++;
+    if (a.isCorrect) groups[a.skillName].correct++;
+  });
 
-  const matchedSkills: string[] = [];
-  const missingSkills: string[] = [];
-  const skillLevels: Record<string, string> = {};
-  const skillComparison: Record<
-    string,
-    { yourScore: number; targetScore: number; status: string }
-  > = {};
-
-  let totalScore = 0;
-  let totalCorrect = 0;
-  let totalIncorrect = 0;
-
-  answers.forEach(
-    ({ score, isCorrect, skillName, difficulty, questionType }) => {
-      if (questionType === 'rating' && score != null) {
-        totalScore += score;
-
-        const level =
-          score <= 2 ? 'basic' : score === 3 ? 'intermediate' : 'advanced';
-        skillLevels[skillName] = level;
-
-        const threshold = thresholds[difficulty];
-        const yourScorePercent = Math.round((score / 5) * 100);
-        const targetScorePercent = Math.round((threshold / 5) * 100);
-
-        skillComparison[skillName] = {
-          yourScore: yourScorePercent,
-          targetScore: targetScorePercent,
-          status: score >= threshold ? 'match' : 'gap',
-        };
-
-        if (score >= threshold) {
-          if (!matchedSkills.includes(skillName)) matchedSkills.push(skillName);
-        } else {
-          if (!missingSkills.includes(skillName)) missingSkills.push(skillName);
-        }
-      }
-
-      if (questionType === 'essay' && isCorrect != null) {
-        if (isCorrect === 1) totalCorrect++;
-        else totalIncorrect++;
-      }
-    },
-  );
-
-  const ratingAnswers = answers.filter((a) => a.questionType === 'rating');
-  const overallScore =
-    ratingAnswers.length > 0
-      ? Math.round((totalScore / ratingAnswers.length) * 20)
-      : 0;
-
-  return {
-    overallScore,
-    matchedSkills,
-    missingSkills,
-    skillLevels,
-    skillComparison,
-    totalCorrect,
-    totalIncorrect,
-  };
+  return Object.entries(groups).map(([skillName, data]) => {
+    const pct = (data.correct / data.total) * 100;
+    const score = Math.round(pct * 10) / 10;
+    const status = score >= 70 ? 'match' : 'gap';
+    const displayText =
+      status === 'match'
+        ? `${score}% Match`
+        : `${Math.round((100 - pct) * 10) / 10}% Gap`;
+    return { skill_name: skillName, score, status, display_text: displayText };
+  });
 };
 
-// ─── GET /api/skill-assessment/questions?role=UI/UX Designer ─────────────────
-
-export const getQuestions = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// GET /api/skill-assessment/questions?role=UI/UX Designer
+export const getQuestions = async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = roleQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({ message: parsed.error.issues[0]?.message ?? 'Invalid query' });
+      res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Invalid query' });
       return;
     }
 
     const { role } = parsed.data;
     const roleData = await db.select().from(roles).where(eq(roles.name, role));
-
     if (roleData.length === 0) {
       res.status(404).json({ message: `Role "${role}" tidak ditemukan` });
       return;
@@ -122,12 +60,9 @@ export const getQuestions = async (
       data: questions.map((q) => ({
         id: q.id,
         question: q.question,
+        options: q.options,
         skillName: q.skillName,
         difficulty: q.difficulty,
-        questionType: q.questionType,
-        scenario: q.scenario,
-        hint: q.hint,
-        // correctAnswer sengaja tidak di-expose ke frontend
       })),
     });
   } catch {
@@ -135,141 +70,90 @@ export const getQuestions = async (
   }
 };
 
-// ─── POST /api/skill-assessment/submit ───────────────────────────────────────
-
-export const submitAssessment = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// POST /api/skill-assessment/submit
+export const submitAssessment = async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = submitAnswerSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({
-        message: parsed.error.issues[0]?.message ?? 'Invalid input',
-      });
+      res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Invalid input' });
       return;
     }
 
     const { roleId, answers } = parsed.data;
-    const userId = (req.user as { id: number }).id;
+    const userId = req.user?.id as number;
 
-    const validQuestions = await db
+    const questions = await db
       .select()
       .from(quizQuestions)
       .where(eq(quizQuestions.roleId, roleId));
 
-    const validIds = validQuestions.map((q) => q.id);
-    const invalidIds = answers
-      .map((a) => a.questionId)
-      .filter((id) => !validIds.includes(id));
-
+    const validIds = questions.map((q) => q.id);
+    const invalidIds = answers.map((a) => a.questionId).filter((id) => !validIds.includes(id));
     if (invalidIds.length > 0) {
-      res.status(400).json({
-        message: `Question ID tidak valid: ${invalidIds.join(', ')}`,
-      });
+      res.status(400).json({ message: `Question ID tidak valid: ${invalidIds.join(', ')}` });
       return;
     }
 
-    const answersWithMeta = answers.map((answer) => {
-      const question = validQuestions.find((q) => q.id === answer.questionId)!;
-
-      let isCorrect: number | null = null;
-      if (
-        question.questionType === 'essay' &&
-        answer.essayAnswer &&
-        question.correctAnswer
-      ) {
-        const keywords = question.correctAnswer
-          .toLowerCase()
-          .split(' ')
-          .filter((w) => w.length > 4);
-        const userAnswer = answer.essayAnswer.toLowerCase();
-        const matchCount = keywords.filter((k) =>
-          userAnswer.includes(k),
-        ).length;
-        isCorrect = matchCount >= keywords.length * 0.3 ? 1 : 0;
-      }
-
-      return {
-        score: answer.score ?? null,
-        essayAnswer: answer.essayAnswer ?? null,
-        isCorrect,
-        skillName: question.skillName,
-        difficulty: question.difficulty,
-        questionType: question.questionType,
-        questionId: answer.questionId,
-        explanation: question.explanation,
-        correctAnswer: question.correctAnswer,
-      };
+    // Grade each answer
+    const graded = answers.map((a) => {
+      const q = questions.find((qq) => qq.id === a.questionId)!;
+      const isCorrect = a.selectedOption === q.correctAnswer ? 1 : 0;
+      return { questionId: a.questionId, selectedOption: a.selectedOption, isCorrect, skillName: q.skillName };
     });
 
-    const {
-      overallScore,
-      matchedSkills,
-      missingSkills,
-      skillLevels,
-      skillComparison,
-      totalCorrect,
-      totalIncorrect,
-    } = calculateSkillGap(answersWithMeta);
+    const totalCorrect = graded.filter((g) => g.isCorrect).length;
+    const totalIncorrect = graded.length - totalCorrect;
+    const overallMatch = Math.round((totalCorrect / graded.length) * 100);
+    const levelBadge = getLevelBadge(overallMatch);
+    const skillsAnalysis = calculateSkillAnalysis(graded);
 
+    const roleData = await db.select().from(roles).where(eq(roles.id, roleId));
+    const roleName = roleData.length > 0 ? roleData[0].name : 'Unknown';
+
+    // Save result
     const result = await db
       .insert(quizResults)
       .values({
         userId,
         roleId,
-        overallScore,
-        matchedSkills,
-        missingSkills,
-        skillLevels,
-        skillComparison,
+        overallMatch,
+        levelBadge,
+        skillsAnalysis,
         totalCorrect,
         totalIncorrect,
       })
       .returning();
 
+    // Save answers
     await db.insert(quizAnswers).values(
-      answersWithMeta.map((a) => ({
+      graded.map((g) => ({
         resultId: result[0].id,
-        questionId: a.questionId,
-        score: a.score,
-        essayAnswer: a.essayAnswer,
-        isCorrect: a.isCorrect,
-      })),
+        questionId: g.questionId,
+        selectedOption: g.selectedOption,
+        isCorrect: g.isCorrect,
+      }))
     );
 
     res.status(201).json({
       message: 'Assessment Complete!',
       data: {
-        overallScore,
-        totalCorrect,
-        totalIncorrect,
-        matchedSkills,
-        missingSkills,
-        skillLevels,
-        skillComparison,
-        answerReview: answersWithMeta.map((a) => ({
-          questionId: a.questionId,
-          skillName: a.skillName,
-          questionType: a.questionType,
-          isCorrect: a.isCorrect,
-          explanation: a.explanation,
-          correctAnswer: a.questionType === 'essay' ? a.correctAnswer : null,
-        })),
+        user_id: userId,
+        role_applied: roleName,
+        overall_match: overallMatch,
+        level_badge: levelBadge,
+        skills_analysis: skillsAnalysis,
       },
     });
   } catch (err) {
-    console.error(err);
+    console.log(err);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// ─── GET /api/skill-assessment/result ────────────────────────────────────────
-
+// GET /api/skill-assessment/result
 export const getResult = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req.user as { id: number }).id;
-
+    const userId = req.user?.id as number;
     const result = await db
       .select()
       .from(quizResults)
@@ -282,7 +166,19 @@ export const getResult = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.json({ message: 'Success', data: result[0] });
+    const roleData = await db.select().from(roles).where(eq(roles.id, result[0].roleId));
+    const roleName = roleData.length > 0 ? roleData[0].name : 'Unknown';
+
+    res.json({
+      message: 'Success',
+      data: {
+        user_id: result[0].userId,
+        role_applied: roleName,
+        overall_match: result[0].overallMatch,
+        level_badge: result[0].levelBadge,
+        skills_analysis: result[0].skillsAnalysis,
+      },
+    });
   } catch {
     res.status(500).json({ message: 'Server Error' });
   }
