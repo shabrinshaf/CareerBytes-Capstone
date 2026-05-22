@@ -29,7 +29,8 @@ app.use('/api/career-roadmap', careerRoadmapRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/daily-mission', dailyMissionRoutes);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on PORT ${PORT}`);
 });
