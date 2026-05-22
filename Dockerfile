@@ -17,4 +17,4 @@ RUN npm run build
 EXPOSE 3000
 
 # Jalankan file dist/app.js (sesuai dengan struktur src/app.ts kamu)
-CMD ["node", "dist/app.js"]
+CMD ["sh", "-c", "npm run db:push && node dist/app.js"]

@@ -1,9 +1,9 @@
-import { defineConfig } from "drizzle-kit";
-import * as dotenv from "dotenv";
-import * as path from "path";
+import { defineConfig } from 'drizzle-kit';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
 // 💡 MEMAKSA DRIZZLE MEMBACA .ENV DI ROOT PROJECT SECARA ABSOLUT
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -12,11 +12,12 @@ const databaseUrl =
   }/${process.env.DB_NAME}`;
 
 export default defineConfig({
-  out: "./drizzle",
-  schema: "./src/db/schema.ts",
-  dialect: "postgresql",
+  out: './drizzle',
+  schema: './src/db/schema.ts',
+  dialect: 'postgresql',
   // Gunakan dbCredentials jika diversi drizzle-kit kamu masih v0.21 ke bawah, atau sesuaikan dengan yang tidak merah
   dbCredentials: {
     url: databaseUrl,
+    ssl: true,
   },
 });
